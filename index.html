@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cladus — P&L Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">Cladus <span class="logo-sub">P&amp;L Intelligence</span></span>
+      </div>
+      <div class="header-center" id="reportMeta" style="display:none">
+        <span class="meta-chip" id="metaPeriod"></span>
+        <span class="meta-chip" id="metaGenerated"></span>
+        <span class="meta-chip" id="metaCacheStatus"></span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnCalculationGuide" style="display:none" type="button" aria-haspopup="dialog">ƒx Calculation guide</button>
+        <button class="btn btn-ghost btn-sm" id="btnAddReports" style="display:none" type="button" title="Add monthly reports without replacing the current workspace">➕ Add Reports</button>
+        <button class="btn btn-ghost btn-sm" id="btnClearLocalData" style="display:none" title="Delete saved encrypted data from this browser">🗑️ Clear local data</button>
+        <button class="btn btn-ghost btn-sm" id="btnSaveSession" style="display:none" title="Encrypt and save automatically on this device">🔒 Save</button>
+        <button class="btn btn-ghost btn-sm" id="btnExportAll" style="display:none" title="Export all reports">⬇️ Export</button>
+        <button class="btn btn-ghost btn-sm" id="btnAiSummary" style="display:none" title="On-device business summary">📊 Local Summary</button>
+        <input type="file" id="addReportsInput" accept=".xlsx,.xls" multiple style="display:none" />
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ UPLOAD SCREEN ════════════════════════════════════ -->
+  <div id="uploadScreen" class="screen upload-screen">
+    <div class="upload-hero">
+      <div class="upload-card" id="dropZone">
+        <div class="upload-icon-wrap">
+          <div class="upload-icon-ring">📊</div>
+        </div>
+        <h2>Flipkart P&amp;L Master Analyzer</h2>
+        <p>Drop one or more monthly Flipkart Excel reports here or select them together. All processing happens locally — your data never leaves your machine.</p>
+        <label class="upload-btn" for="fileInput">
+          <span>📂 Choose Excel Files</span>
+          <input type="file" id="fileInput" accept=".xlsx,.xls" multiple />
+        </label>
+        <p class="upload-hint">Select multiple monthly .xlsx / .xls reports together · Browser-only processing · No application server</p>
+        <p class="upload-hint">Choose files here to replace the current report set. Use Add Reports in the dashboard header to append without replacing saved months.</p>
+        <p class="upload-hint">Your report is not uploaded. The app loads parsing and chart libraries from jsDelivr; those requests contain no spreadsheet data.</p>
+        <div id="cachedSessionAlert" style="display:none" class="cache-alert">
+          <span>🔒 Encrypted local session found.</span>
+          <button class="btn btn-sm btn-accent" id="btnLoadCache">Restore Last Session</button>
+        </div>
+      </div>
+      <div class="upload-features">
+        <div class="feat-item">📈 <span>Full P&amp;L Waterfall — every deduction tracked</span></div>
+        <div class="feat-item">🏷️ <span>SKU-level true profit after COGS</span></div>
+        <div class="feat-item">🔄 <span>Return cost analysis per product</span></div>
+        <div class="feat-item">💸 <span>Seller discount &amp; offer breakdown</span></div>
+        <div class="feat-item">📊 <span>On-device insights and alerts; no AI service calls</span></div>
+        <div class="feat-item">📥 <span>CSV / JSON report exports</span></div>
+        <div class="feat-item">🔒 <span>Local data automatically encrypted on this device</span></div>
+        <div class="feat-item">🏦 <span>Settlement and payment data read from your uploaded reports</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ COST SCREEN ═══════════════════════════════════════ -->
+  <div id="costScreen" class="screen" style="display:none">
+    <div class="cost-header">
+      <div>
+        <h2>🏷️ Set Your Product &amp; Packing Costs</h2>
+        <p>Default costs are ₹80 per product and ₹5 per unit for packing. Count product cost as a loss separately for each RVP customer-return order using its toggle. RTO and cancellations include a fixed ₹5 packing charge per unit only.</p>
+      </div>
+      <div class="cost-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnImportCosts">📥 Import CSV</button>
+        <button class="btn btn-ghost btn-sm" id="btnExportCostsCsv">📤 Export CSV</button>
+        <button class="btn btn-secondary btn-sm" id="resetCosts" title="Reset all costs to ₹80 product and ₹5 packing">↺ Reset Defaults</button>
+        <button class="btn btn-primary" id="analyzBtn">📈 Generate Dashboard →</button>
+        <input type="file" id="costsImportFile" accept=".csv" style="display:none" />
+      </div>
+    </div>
+    <div class="cost-table-wrapper">
+      <table class="cost-table" id="costTable">
+        <thead>
+          <tr>
+            <th>SKU ID</th>
+            <th>Gross Units</th>
+            <th>Net Units</th>
+            <th>Avg FSP/unit</th>
+            <th>Avg Net Sale/unit</th>
+            <th>Your Product Cost / unit ✏️</th>
+            <th>Your Packing Cost / unit ✏️</th>
+            <th>Other Cost ✏️</th>
+            <th>Your COGS / unit</th>
+            <th>Flipkart Pick and Pack Fee (report)</th>
+            <th>Margin before platform fees</th>
+          </tr>
+        </thead>
+        <tbody id="costTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ DASHBOARD SCREEN ══════════════════════════════════ -->
+  <div id="dashScreen" class="screen" style="display:none">
+
+    <div id="reportTabs" class="report-tabs" role="tablist" aria-label="Monthly reports" style="display:none"></div>
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="overview">📊 Overview</button>
+      <button class="tab-btn" data-tab="waterfall">💧 P&amp;L Waterfall</button>
+      <button class="tab-btn" data-tab="sku">🏷️ SKU Deep-Dive</button>
+      <button class="tab-btn" data-tab="orders">📋 Orders</button>
+      <button class="tab-btn" data-tab="returns">🔄 Returns</button>
+      <button class="tab-btn" data-tab="discounts">🎟️ Discounts</button>
+      <button class="tab-btn" data-tab="expenses">💸 Expenses</button>
+      <button class="tab-btn" data-tab="settlements">🏦 Settlements</button>
+      <button class="tab-btn" data-tab="insights">📊 Local Insights</button>
+      <button class="tab-btn" data-tab="editcosts">⚙️ Costs</button>
+      <div class="tab-spacer"></div>
+      <button class="btn btn-ghost btn-sm tab-action" id="uploadNewBtn">📂 Change Reports</button>
+    </nav>
+
+    <!-- ── OVERVIEW ──────────────────────────────────────── -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Revenue Waterfall</h3><span class="chart-sub">Gross → True Profit</span></div>
+          <canvas id="revenueChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Order Status Split</h3></div>
+          <canvas id="statusChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Daily Revenue &amp; Order Trend</h3><span class="chart-sub">30-day view</span></div>
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Channel-wise Revenue</h3></div>
+          <canvas id="channelChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Payment Mode</h3></div>
+          <canvas id="paymentChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Weekly Performance</h3></div>
+          <canvas id="weeklyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── P&L WATERFALL ────────────────────────────────── -->
+    <div class="tab-content" id="tab-waterfall" style="display:none">
+      <div class="waterfall-grid" id="waterfallGrid"></div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Complete P&amp;L Waterfall — Every Rupee Accounted</h3></div>
+          <canvas id="waterfallChart" style="max-height:420px"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Deduction Breakdown (% of Gross)</h3></div>
+          <canvas id="deductionPieChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>SKU Contribution to Net Sales</h3></div>
+          <canvas id="skuContribChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <h3>📋 Complete Deduction Ledger</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="deductionTable">
+            <thead><tr>
+              <th>Line Item</th><th>Amount (INR)</th><th>% of Gross</th><th>% of Net Sales</th><th>Type</th>
+            </tr></thead>
+            <tbody id="deductionBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SKU DEEP-DIVE ─────────────────────────────────── -->
+    <div class="tab-content" id="tab-sku" style="display:none">
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>SKU True Profit Stack</h3><span class="chart-sub">Settlement vs COGS vs Net</span></div>
+          <canvas id="skuEarningsChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Return Rate % per SKU</h3></div>
+          <canvas id="skuReturnChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Profit Margin % per SKU</h3></div>
+          <canvas id="skuMarginChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Avg Return Cost / unit</h3></div>
+          <canvas id="skuReturnCostChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>SKU Seller Discount Funding</h3></div>
+          <canvas id="skuDiscountChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Platform Fee Rate % by SKU</h3></div>
+          <canvas id="skuFeeRateChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>🏷️ SKU Master Analysis Table</h3>
+          <button class="btn btn-ghost btn-sm" id="btnExportSkuCsv">📥 Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table" id="skuDetailTable">
+            <thead><tr>
+              <th>SKU</th>
+              <th>Gross</th><th>RTO</th><th>RVP</th><th>Cancels</th><th>Net Units</th>
+              <th>Return %</th><th>Gross Sale</th><th>Seller Disc.</th><th>Net Sales</th>
+              <th>Rev. Ship</th><th>Avg Ret. Cost/u</th>
+              <th>Fixed Fee</th><th>Ads</th><th>GST</th><th>TCS+TDS</th>
+              <th>Total Exp. incl. shared</th><th>COGS Total</th><th>Bank Settle.</th>
+              <th>True Profit</th><th>Margin %</th><th>Profit/Unit</th><th>ITC</th>
+            </tr></thead>
+            <tbody id="skuDetailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ORDERS ────────────────────────────────────────── -->
+    <div class="tab-content" id="tab-orders" style="display:none">
+      <div class="filter-bar">
+        <input type="text" id="orderSearch" class="filter-input" placeholder="🔍 Search Order ID, SKU, Channel..." />
+        <select id="orderStatusFilter" class="filter-select"><option value="">All Statuses</option></select>
+        <select id="orderSkuFilter" class="filter-select"><option value="">All SKUs</option></select>
+        <select id="orderChannelFilter" class="filter-select"><option value="">All Channels</option></select>
+        <select id="orderPayFilter" class="filter-select"><option value="">All Payments</option></select>
+        <button class="btn btn-ghost btn-sm" id="btnExportOrdersCsv">📥 CSV</button>
+      </div>
+      <div class="orders-summary-bar" id="ordersSummaryBar"></div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table class="data-table" id="ordersTable">
+            <thead><tr>
+              <th>View</th>
+              <th>Date</th><th>Order ID</th><th>SKU</th><th>Channel</th>
+              <th>Payment</th><th>Status</th><th>Units</th>
+              <th>FSP</th><th>Seller Disc.</th><th>Net Sale</th>
+              <th>Rev. Ship</th><th>Fixed Fee</th><th>Taxes</th>
+              <th>Total Exp. incl. shared</th><th>Settlement</th><th>COGS</th><th>True Profit</th>
+            </tr></thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="ordersPagination"></div>
+      </div>
+    </div>
+
+    <!-- ── RETURNS ───────────────────────────────────────── -->
+    <div class="tab-content" id="tab-returns" style="display:none">
+      <nav class="returns-section-nav" id="returnsSectionNav" aria-label="Returns sections">
+        <button type="button" class="returns-section-link active" data-returns-target="returns-summary">Returns Summary</button>
+        <button type="button" class="returns-section-link" data-returns-target="rto-returns-section">RTO</button>
+        <button type="button" class="returns-section-link" data-returns-target="rvp-returns-section">RVP</button>
+        <button type="button" class="returns-section-link" data-returns-target="cancel-returns-section">Cancellations</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnExportReturnsSummary">📥 Download Returns Calculations</button>
+      </nav>
+      <section id="returns-summary" class="returns-section">
+      <div class="kpi-grid" id="returnsKpi"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Return Type Breakdown</h3></div>
+          <canvas id="returnTypeChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>SKU Return Units (RTO / RVP / Cancel)</h3></div>
+          <canvas id="skuReturnUnitsChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Return Cost vs Recovery</h3></div>
+          <canvas id="returnCostChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Daily Deliveries vs Returns</h3></div>
+          <canvas id="dailyReturnChart"></canvas>
+        </div>
+      </div>
+      </section>
+      <section id="rto-returns-section" class="returns-section">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>📦 RTO — Logistics Returns</h3>
+          <button class="btn btn-ghost btn-sm" id="btnExportRtoCsv">📥 Download RTO Calculations</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table" id="rtoTable">
+            <thead><tr>
+              <th>Date</th><th>Order ID</th><th>SKU</th><th>Status</th><th>RTO Units</th>
+              <th>Original FSP</th><th>Settlement Loss</th><th>Product COGS Lost</th>
+              <th>Packing Loss</th><th>Total RTO Loss</th>
+            </tr></thead>
+            <tbody id="rtoBody"></tbody>
+          </table>
+        </div>
+      </div>
+      </section>
+      <section id="rvp-returns-section" class="returns-section">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>🔙 RVP — Customer Returns</h3>
+          <div class="rvp-toolbar-actions">
+            <label class="rvp-master-control" for="rvpMasterProductLossToggle">
+              <input type="checkbox" id="rvpMasterProductLossToggle" aria-label="Count product cost as loss for all RVP orders in this report">
+              <span>Master: Count Product Cost as Loss?</span>
+            </label>
+            <button class="btn btn-ghost btn-sm" id="btnExportRvpCsv">📥 Download RVP Calculations</button>
+          </div>
+        </div>
+        <p class="rvp-master-summary" id="rvpMasterSummary" aria-live="polite"></p>
+        <div class="table-scroll">
+          <table class="data-table" id="rvpTable">
+            <thead><tr>
+              <th>Date</th><th>Order ID</th><th>SKU</th><th>Status</th><th>RVP Units</th>
+              <th>Original FSP</th><th>Settlement Loss</th><th>Count Product Cost as Loss?</th>
+              <th>Packing Loss</th><th>Total RVP Loss</th>
+            </tr></thead>
+            <tbody id="rvpBody"></tbody>
+          </table>
+        </div>
+      </div>
+      </section>
+      <section id="cancel-returns-section" class="returns-section">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>❌ Cancellations</h3>
+          <button class="btn btn-ghost btn-sm" id="btnExportCancelCsv">📥 Download Cancellation Calculations</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table" id="cancelTable">
+            <thead><tr>
+              <th>Date</th><th>Order ID</th><th>SKU</th><th>Status</th><th>Cancelled Units</th>
+              <th>Original FSP</th><th>Settlement Loss</th><th>Packing Loss</th><th>Total Cancellation Loss</th>
+            </tr></thead>
+            <tbody id="cancelBody"></tbody>
+          </table>
+        </div>
+      </div>
+      </section>
+    </div>
+
+    <!-- ── DISCOUNTS ─────────────────────────────────────── -->
+    <div class="tab-content" id="tab-discounts" style="display:none">
+      <div class="kpi-grid" id="discountsKpi"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>SKU Seller Discount Total</h3></div>
+          <canvas id="discSkuChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Discount % of FSP by SKU</h3></div>
+          <canvas id="discRateChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Daily Discount Spend</h3></div>
+          <canvas id="discDailyChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Offer ID Frequency (Top 15)</h3></div>
+          <canvas id="offerFreqChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <h3>🎟️ Order-level Discount Ledger</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="discountTable">
+            <thead><tr>
+              <th>Date</th><th>Order ID</th><th>SKU</th><th>FSP</th>
+              <th>Seller Disc.</th><th>Customer Add-on</th><th>Total Cust. Disc.</th>
+              <th>Offer IDs</th><th>% of FSP</th><th>Net After Disc.</th>
+            </tr></thead>
+            <tbody id="discountBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="discountPagination"></div>
+      </div>
+    </div>
+
+    <!-- ── EXPENSES ──────────────────────────────────────── -->
+    <div class="tab-content" id="tab-expenses" style="display:none">
+      <div class="kpi-grid" id="expensesKpi"></div>
+      <div class="charts-row">
+        <div class="chart-card wide delivery-analysis-card">
+          <div class="chart-header">
+            <div>
+              <h3>🏷️ Selling Price &amp; Flipkart Settlement Deductions</h3>
+              <span class="chart-sub">Weighted unit price and per-order settlement values from delivered Excel rows</span>
+            </div>
+          </div>
+          <p class="analysis-caveat">Average selling price/unit = total Final Selling Price ÷ delivered net units (Order Item Value is a fallback when Final Selling Price is unavailable). Order Item Value − Bank Settlement is the total Flipkart settlement-deduction gap; it may include shipping, commission, taxes, discounts, and other charges, so it is not delivery-only.</p>
+          <canvas id="deliverySettlementChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card customer-fee-estimate-card">
+        <div class="table-toolbar">
+          <div>
+            <h3>🛒 Estimated Customer-Paid Service Fees</h3>
+            <p class="analysis-caveat">Illustrative customer-side estimate only; not an Excel-reported amount, seller expense, or part of seller profit.</p>
+          </div>
+          <div class="fee-range-inputs">
+            <label>Low estimate/order ₹<input type="number" id="customerServiceFeeMin" min="0" step="0.5" value="5"></label>
+            <label>High estimate/order ₹<input type="number" id="customerServiceFeeMax" min="0" step="0.5" value="10"></label>
+          </div>
+        </div>
+        <p id="customerServiceFeeSummary" class="analysis-caveat" aria-live="polite"></p>
+        <div class="estimate-chart-wrap"><canvas id="customerServiceFeeChart"></canvas></div>
+      </div>
+      <p id="expenseReconciliationNote" class="analysis-caveat expense-reconciliation-note" aria-live="polite"></p>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Expense Category Breakdown</h3></div>
+          <canvas id="expenseBreakChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Tax Breakdown</h3></div>
+          <canvas id="taxChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>SKU-wise Expense Burden</h3></div>
+          <canvas id="skuExpBurdenChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Daily Expense Trend</h3></div>
+          <canvas id="dailyExpenseChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <h3>💸 Platform Expenses &amp; COGS Summary</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="expenseTable">
+            <thead><tr>
+              <th>Category</th><th>Total (INR)</th><th>Share of Total Costs</th>
+              <th>% of Gross Sales</th><th>% of Net Sales</th><th>Avg / Order ID</th>
+            </tr></thead>
+            <tbody id="expenseBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTLEMENTS ───────────────────────────────────── -->
+    <div class="tab-content" id="tab-settlements" style="display:none">
+      <div class="kpi-grid" id="settleKpi"></div>
+      <div class="charts-row">
+        <div class="chart-card wide">
+          <div class="chart-header"><h3>Settlement Timeline</h3><span class="chart-sub">Cumulative settled vs projected</span></div>
+          <canvas id="settleTimelineChart"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header"><h3>Settlement by Batch Date</h3></div>
+          <canvas id="settleBatchChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>POSTPAID vs PREPAID</h3></div>
+          <canvas id="settleTypeChart"></canvas>
+        </div>
+      </div>
+      <div class="table-card">
+        <h3>🏦 Settlement Batch Summary</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="settleTable">
+            <thead><tr>
+              <th>NEFT/Ref ID</th><th>Payment Date</th><th>Account Type</th>
+              <th>Total Amount</th><th># Orders</th><th>Status</th>
+            </tr></thead>
+            <tbody id="settleBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI INSIGHTS ───────────────────────────────────── -->
+    <div class="tab-content" id="tab-insights" style="display:none">
+      <div class="insights-header">
+        <h2>🤖 AI-Powered Business Insights</h2>
+        <p>Rule-based intelligence analyzing every data point in your report.</p>
+        <button class="btn btn-primary" id="btnRunInsights">⚡ Generate Fresh Insights</button>
+      </div>
+      <div class="alerts-section" id="alertsSection"></div>
+      <div class="insights-grid" id="insightsGrid"></div>
+      <div class="recommendations-section" id="recommendationsSection"></div>
+      <div class="table-card">
+        <h3>📋 Action Items Checklist</h3>
+        <div id="actionItems"></div>
+      </div>
+    </div>
+
+    <!-- ── EDIT COSTS ────────────────────────────────────── -->
+    <div class="tab-content" id="tab-editcosts" style="display:none">
+      <div class="cost-header">
+        <div>
+          <h2>⚙️ Edit Product &amp; Packing Costs</h2>
+          <p>Costs default to ₹80 product and ₹5 packing per unit. Use the toggle on each RVP return order to include or exclude its product cost from the loss. RTO and cancellations include a fixed ₹5 packing charge per unit only. Change costs and refresh to update metrics.</p>
+        </div>
+        <div class="cost-header-actions">
+          <button class="btn btn-ghost btn-sm" id="btnExportCostsCsv2">📤 Export CSV</button>
+          <button class="btn btn-primary" id="refreshDash">🔄 Refresh Dashboard</button>
+        </div>
+      </div>
+      <div class="cost-table-wrapper">
+        <table class="cost-table" id="costTableDash">
+          <thead><tr>
+            <th>SKU ID</th><th>Net Units</th><th>Avg FSP</th>
+            <th>Your Product Cost / unit ✏️</th><th>Your Packing Cost / unit ✏️</th><th>Other Cost ✏️</th>
+            <th>Your COGS / unit</th><th>Your Total COGS</th><th>Bank Settlement [Projected]</th>
+            <th>Flipkart Pick and Pack Fee</th><th>True Profit</th>
+          </tr></thead>
+          <tbody id="costTableDashBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /dashScreen -->
+
+  <div id="orderDetailModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
+    <section class="modal-card order-detail-card">
+      <div class="modal-header">
+        <h3 id="orderDetailTitle">Order financial breakdown</h3>
+        <button class="modal-close" id="closeOrderDetail" type="button" aria-label="Close order breakdown">✕</button>
+      </div>
+      <div class="modal-body order-detail-body" id="orderDetailBody"></div>
+      <div class="modal-footer">
+        <span class="calculation-guide-footnote">Source: this order’s Excel row, allocated report totals, and saved product costs.</span>
+        <button class="btn btn-primary btn-sm" id="doneOrderDetail" type="button">Done</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="calculationGuide" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="calculationGuideTitle">
+    <section class="modal-card calculation-guide-card">
+      <div class="modal-header">
+        <h3 id="calculationGuideTitle">How this dashboard calculates your metrics</h3>
+        <button class="modal-close" id="closeCalculationGuide" type="button" aria-label="Close calculation guide">✕</button>
+      </div>
+      <div class="modal-body" id="calculationGuideBody"></div>
+      <div class="modal-footer">
+        <span class="calculation-guide-footnote">Source: the Excel report you selected and your editable product-cost settings.</span>
+        <button class="btn btn-primary btn-sm" id="doneCalculationGuide" type="button">Done</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══ ON-DEVICE BUSINESS SUMMARY MODAL ═══════════════════ -->
+  <div id="aiModal" class="modal-overlay" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📊 On-Device Business Summary</h3>
+        <button class="modal-close" id="closeAiModal">✕</button>
+      </div>
+      <div class="modal-body" id="aiModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-sm" id="btnCopyAi">📋 Copy Text</button>
+        <button class="btn btn-primary btn-sm" id="btnDownloadAi">⬇️ Download .txt</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+<script src="app.js"></script>
+</body>
+</html>

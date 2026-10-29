@@ -1,0 +1,16 @@
+# Uploaded reports and other local business data
+*.xlsx
+*.xls
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+
+# Local credentials and tooling artifacts
+.env
+.env.*
+!.env.example
+node_modules/
+.vercel/
+coverage/
+*.log

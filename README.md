@@ -1,6 +1,6 @@
-# Cladus P&L Intelligence
+# Flipkart Ecommerce P&L Intelligence Dashboard 
 
-Cladus is a static, browser-based Flipkart report analyzer. It reads Excel reports on the user's device, calculates P&L and return metrics, and saves an encrypted workspace in that browser profile. It has no application backend, account system, sign-up, or login.
+FEPLID is a static, browser-based Flipkart report analyzer. It reads Excel reports on the user's device, calculates P&L and return metrics, and saves an encrypted workspace in that browser profile. It has no application backend, account system, sign-up, or login.
 
 > **Financial interpretation:** Excel-reported platform expenses are already reflected in the reported bank settlement. Cladus shows platform expenses as a breakdown, but the main profit formula subtracts seller COGS from settlement only. Do not subtract platform expenses from settlement a second time.
 
